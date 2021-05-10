@@ -22,6 +22,10 @@ public class GameBoardCell : MonoBehaviour
         }
     }
 
+    public bool IsCorner {get; set;}
+
+    public Color Color {get; set;} = Color.white;
+
     public void SetPosition(int x, int z) {
         Vector3 pos = transform.position;
         pos.x = x * GameBoardMetrics.CELL_SIZE; 

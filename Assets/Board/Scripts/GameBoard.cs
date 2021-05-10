@@ -6,8 +6,6 @@ using UnityEngine;
 public class GameBoard : MonoBehaviour
 {
     private GameBoardMesh mesh;
-	private List<Vector3> vertices;
-	private List<int> triangles;
 
 	[SerializeField]
 	private GameBoardCell cellPrefab;
@@ -15,11 +13,8 @@ public class GameBoard : MonoBehaviour
 	[SerializeField]
 	private Player playerPrefab;
 
-	// add info about corner (simplify movement chunking)
 	private List<GameBoardCell> cells = new List<GameBoardCell>();
 	private Dictionary<Player, int> playersOnBoard = new Dictionary<Player, int>();
-
-	// private static int cellCount = 5;
 
 	private bool isPlayerMove = false;
 
@@ -41,8 +36,6 @@ public class GameBoard : MonoBehaviour
 			MovePlayer(playersOnBoard.First().Key);
 		}
 	}
-
-
 
 	private void CreatPlayer () {
 		Vector3 position = Vector3.zero;
@@ -67,23 +60,17 @@ public class GameBoard : MonoBehaviour
 		for (int i = 0; i < cellMoves; i++) {
 			int nextCellIndex = currentCellIndex == cells.Count-1 ? 0 : currentCellIndex+1;
 			GameBoardCell nextCell = cells[nextCellIndex];
-			Vector2Int moveDirection = new Vector2Int(
-				nextCell.X-currentCell.X, nextCell.Z-currentCell.Z);
 
-			Debug.Log($"Current cell = {currentCell.transform.localPosition}, next = {nextCell.transform.localPosition}");
-			Debug.Log($"Last move v = {lastMoveDirection}, new = {moveDirection}");
-			if (moveDirection != lastMoveDirection || i == cellMoves-1) 
+			if (currentCell.IsCorner || i == cellMoves-1) 
 			{
-				Vector3 endPosition = moveDirection != lastMoveDirection && lastMoveDirection != Vector2Int.zero
+				Vector3 endPosition = currentCell.IsCorner
 					? new Vector3(currentCell.X, player.transform.localPosition.y, currentCell.Z)
 					: new Vector3(nextCell.X, player.transform.localPosition.y, nextCell.Z);
-				Debug.Log($"Enque movement to position  {endPosition}");
 				playerMovementsQueue.Enqueue(MoveOverSpeed(player, endPosition, 3f));
 			}
 
 			currentCell = nextCell;
 			currentCellIndex = nextCellIndex;
-			lastMoveDirection = moveDirection;
 		}
 
 		playersOnBoard[player] = currentCellIndex;
@@ -103,6 +90,7 @@ public class GameBoard : MonoBehaviour
 		}
     }
 
+	// refactor
 	public IEnumerator MoveOverSeconds (Player objectToMove, Vector3 end, float seconds) {
 		isPlayerMove = true;
         float elapsedTime = 0;
@@ -127,37 +115,49 @@ public class GameBoard : MonoBehaviour
 		isPlayerMove = false;
 	}
 
-	// replace with draw broken line methods (only angles)
-	private static System.Tuple<int, int>[] cellMap = {
-		new System.Tuple<int, int>(0, 0),
-		new System.Tuple<int, int>(0, 1),
-		new System.Tuple<int, int>(0, 2),
-		new System.Tuple<int, int>(0, 3),
-		new System.Tuple<int, int>(0, 4),
-		new System.Tuple<int, int>(1, 4),
-		new System.Tuple<int, int>(2, 4),
-		new System.Tuple<int, int>(3, 4),
-		new System.Tuple<int, int>(4, 4),
-		new System.Tuple<int, int>(4, 3),
-		new System.Tuple<int, int>(4, 2),
-		new System.Tuple<int, int>(4, 1),
-		new System.Tuple<int, int>(4, 0),
-		new System.Tuple<int, int>(3, 0),
-		new System.Tuple<int, int>(2, 0),
-		new System.Tuple<int, int>(1, 0)
+	private static Vector2Int[] cellMap = {
+		new Vector2Int(0, 0),
+		new Vector2Int(0, 4),
+		new Vector2Int(3, 4),
+		new Vector2Int(3, 8),
+		new Vector2Int(9, 8),
+		new Vector2Int(9, 3),
+		new Vector2Int(6, 3),
+		new Vector2Int(6, 0)
+	};
+
+	private static Color[] cellColors = {
+		Color.blue, Color.cyan, Color.yellow, Color.grey
 	};
 
 	private void InitMap()
 	{
-		foreach (var coord in cellMap) {
-			CreateCell(coord.Item1, coord.Item2);
+		Debug.Log($"cellMap count - {cellMap.Count()}");
+		int colorIndex = 0;
+		for (int i = 0; i < cellMap.Count(); i++) {
+			var cell = cellMap[i];
+			var nextCell = i == cellMap.Count()-1 ? cellMap[0] : cellMap[i+1];
+
+			Debug.Log($"Drawing line from ({cell.x},{cell.y}) to ({nextCell.x},{nextCell.y})");
+			int lineLength = Mathf.Abs((nextCell.x-cell.x) + (nextCell.y-cell.y));
+			var step = new Vector2Int((nextCell.x-cell.x)/lineLength, (nextCell.y-cell.y)/lineLength);
+			var curCell = cell;
+			for (int j = 0; j < lineLength; j++) {
+				bool isCorner = j == 0 || j == lineLength-1;
+				CreateCell(curCell.x, curCell.y, isCorner, cellColors[colorIndex]);
+				curCell += step;
+				colorIndex = colorIndex == 3 ? 0 : colorIndex+1;
+			}
 		}
 	}
 
-	private void CreateCell (int x, int z) {
+	private void CreateCell (int x, int z, bool isCorner, Color color) {
+		Debug.Log($"Creating cell ({x},{z})");
 		GameBoardCell cell = Instantiate<GameBoardCell>(cellPrefab);
 		cell.transform.SetParent(transform, false);
 		cell.SetPosition(x, z);
+		cell.IsCorner = isCorner;
+		cell.Color = color;
 		cells.Add(cell);
 	}
 }
